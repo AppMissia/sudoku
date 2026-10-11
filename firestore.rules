@@ -1,0 +1,22 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Профиль пользователя: читать и писать может только сам владелец
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Общая таблица лидеров: читать может любой, обновлять — только свой профиль
+    match /leaderboard/{userId} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Ежедневный челлендж: читать может любой, записать свой результат может авторизованный игрок
+    match /daily/{dateKey}/scores/{userId} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}

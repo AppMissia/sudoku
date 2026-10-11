@@ -1,19 +1,27 @@
 // src/App.tsx
 import React, { useEffect, useCallback, useState, useMemo, useRef } from "react";
-import { Difficulty } from "./types/sudoku";
+import { Difficulty, RewardInfo } from "./types/sudoku";
 import { useSudokuGame } from "./hooks/useSudokuGame";
-import { TopBar } from "./components/TopBar";
+import { TopBar, View } from "./components/TopBar";
 import { SudokuGrid } from "./components/SudokuGrid";
 import { ActionToolbar } from "./components/ActionToolbar";
 import { NumberPad } from "./components/NumberPad";
 import { GameModals } from "./components/GameModals";
 import { SoundEngine } from "./utils/soundEngine";
 import { vibrateLight, vibrateError, vibrateSuccess } from "./utils/haptics";
+import { PlayerProvider, usePlayer } from "./context/PlayerContext";
+import { ProfilePanel } from "./components/panels/ProfilePanel";
+import { AuthPanel } from "./components/panels/AuthPanel";
+import { LeaderboardPanel } from "./components/panels/LeaderboardPanel";
+import { DailyPanel } from "./components/panels/DailyPanel";
+import { SettingsPanel } from "./components/panels/SettingsPanel";
+import { toDateKey } from "./utils/sudokuEngine";
 
-export const App: React.FC = () => {
-  const [theme, setTheme] = useState<"light" | "dark">(() =>
-    (localStorage.getItem("premium-sudoku-theme") ?? "dark") as "light" | "dark"
-  );
+const SudokuGameView: React.FC = () => {
+  const { player, user, recordGame } = usePlayer();
+  const [activePanel, setActivePanel] = useState<View | null>(null);
+  const [reward, setReward] = useState<RewardInfo | null>(null);
+  const [isNewRecord, setIsNewRecord] = useState(false);
 
   const {
     state,
@@ -23,10 +31,14 @@ export const App: React.FC = () => {
     togglePencilMode,
     undo,
     getHint,
+    fillAutoNotes,
     startNewGame,
+    startDaily,
     togglePause,
     setMaxMistakes,
-  } = useSudokuGame();
+  } = useSudokuGame({
+    autoRemoveNotes: player.settings.autoRemoveNotes,
+  });
 
   const sound = SoundEngine.getInstance();
   const [isMuted, setMuted] = useState<boolean>(sound.isMuted);
@@ -35,46 +47,42 @@ export const App: React.FC = () => {
   const [errorFlash, setErrorFlash] = useState(false);
   const prevMistakes = useRef(state.mistakes);
 
-  // Detect mistake increase → trigger screen flash
+  // Sync theme attribute with document root
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", player.settings.theme);
+  }, [player.settings.theme]);
+
+  // Detect mistake increase → trigger screen flash & audio/haptic feedback
   useEffect(() => {
     if (state.mistakes > prevMistakes.current) {
       setErrorFlash(true);
       sound.playError();
-      vibrateError();
+      if (player.settings.vibration) vibrateError();
       const t = setTimeout(() => setErrorFlash(false), 600);
       prevMistakes.current = state.mistakes;
       return () => clearTimeout(t);
     }
     prevMistakes.current = state.mistakes;
-  }, [state.mistakes, sound]);
+  }, [state.mistakes, sound, player.settings.vibration]);
 
-  // Selected cell's value for NumberPad highlighting
+  // Selected cell's value for NumberPad & grid highlighting
   const selectedNumber = useMemo(() => {
     if (!state.selectedCell) return null;
     const [r, c] = state.selectedCell;
     return state.board[r][c].value;
   }, [state.selectedCell, state.board]);
 
-  // Theme
-  useEffect(() => {
-    const root = document.documentElement;
-    if (theme === "dark") root.classList.add("dark");
-    else root.classList.remove("dark");
-    localStorage.setItem("premium-sudoku-theme", theme);
-  }, [theme]);
-
-  const toggleTheme = useCallback(() =>
-    setTheme(t => (t === "light" ? "dark" : "light")), []
-  );
   const toggleSound = useCallback(() => {
     sound.toggleMute();
     setMuted(sound.isMuted);
   }, [sound]);
 
-  // Keyboard
+  // Global Keyboard handling
   const handleKey = useCallback(
     (e: KeyboardEvent) => {
+      if (activePanel) return; // Don't intercept game keys when a modal panel is open
       if (state.isGameOver || state.isWon) return;
+
       const k = e.key;
       if (k >= "1" && k <= "9") {
         setCellValue(parseInt(k, 10));
@@ -97,6 +105,12 @@ export const App: React.FC = () => {
       } else if (k.toLowerCase() === "n") {
         togglePencilMode();
         e.preventDefault();
+      } else if (k.toLowerCase() === "a") {
+        fillAutoNotes();
+        e.preventDefault();
+      } else if (k.toLowerCase() === "h") {
+        getHint();
+        e.preventDefault();
       } else if (k.toLowerCase() === "u" || (e.ctrlKey && k === "z")) {
         undo();
         e.preventDefault();
@@ -105,7 +119,18 @@ export const App: React.FC = () => {
         e.preventDefault();
       }
     },
-    [state, setCellValue, eraseCell, selectCell, togglePencilMode, undo, togglePause]
+    [
+      activePanel,
+      state,
+      setCellValue,
+      eraseCell,
+      selectCell,
+      togglePencilMode,
+      fillAutoNotes,
+      getHint,
+      undo,
+      togglePause,
+    ]
   );
 
   useEffect(() => {
@@ -118,12 +143,12 @@ export const App: React.FC = () => {
     (row: number, col: number) => {
       selectCell(row, col);
       sound.playClick();
-      vibrateLight();
+      if (player.settings.vibration) vibrateLight();
     },
-    [selectCell, sound]
+    [selectCell, sound, player.settings.vibration]
   );
 
-  // Number entry feedback (error is handled via prevMistakes effect above)
+  // Number entry feedback
   const handleSetValue = useCallback(
     (num: number) => {
       if (!state.selectedCell) return;
@@ -131,55 +156,117 @@ export const App: React.FC = () => {
       const cell = state.board[r][c];
       if (cell.isInitial) return;
       setCellValue(num);
-      // Play click for correct entries (error sound is in the effect)
+
       setTimeout(() => {
-        // Check if mistake count didn't change → it was correct
         sound.playClick();
-        vibrateLight();
+        if (player.settings.vibration) vibrateLight();
       }, 0);
     },
-    [state, setCellValue, sound]
+    [state, setCellValue, sound, player.settings.vibration]
   );
 
   const handleErase = useCallback(() => {
     eraseCell();
     sound.playErase();
-    vibrateLight();
-  }, [eraseCell, sound]);
+    if (player.settings.vibration) vibrateLight();
+  }, [eraseCell, sound, player.settings.vibration]);
 
-  // Win feedback
+  // Game completion handling (record win/loss, reward XP, achievements)
+  const recordedGameIdRef = useRef<string | null>(null);
+
   useEffect(() => {
-    if (state.isWon) {
+    if (state.isWon && recordedGameIdRef.current !== state.gameId) {
+      recordedGameIdRef.current = state.gameId;
       sound.playWin();
-      vibrateSuccess();
+      if (player.settings.vibration) vibrateSuccess();
+
+      const currentBest = player.stats[state.difficulty].bestTime;
+      const isRecord = currentBest === null || state.timerSeconds < currentBest;
+      setIsNewRecord(isRecord);
+
+      const rew = recordGame({
+        id: state.gameId,
+        difficulty: state.difficulty,
+        won: true,
+        time: state.timerSeconds,
+        mistakes: state.mistakes,
+        hintsUsed: state.hintsUsed,
+        dailyDate: state.dailyDate,
+      });
+      if (rew) setReward(rew);
+    } else if (state.isGameOver && recordedGameIdRef.current !== state.gameId) {
+      recordedGameIdRef.current = state.gameId;
+      const rew = recordGame({
+        id: state.gameId,
+        difficulty: state.difficulty,
+        won: false,
+        time: state.timerSeconds,
+        mistakes: state.mistakes,
+        hintsUsed: state.hintsUsed,
+        dailyDate: state.dailyDate,
+      });
+      if (rew) setReward(rew);
     }
-  }, [state.isWon, sound]);
+  }, [
+    state.isWon,
+    state.isGameOver,
+    state.gameId,
+    state.difficulty,
+    state.timerSeconds,
+    state.mistakes,
+    state.hintsUsed,
+    state.dailyDate,
+    sound,
+    player.settings.vibration,
+    player.stats,
+    recordGame,
+  ]);
+
+  const handleRestart = (diff?: Difficulty) => {
+    setReward(null);
+    setIsNewRecord(false);
+    startNewGame(diff ?? state.difficulty);
+  };
+
+  const handleNextGame = () => {
+    setReward(null);
+    setIsNewRecord(false);
+    startNewGame(state.difficulty);
+  };
 
   return (
-    <div className="min-h-screen w-full bg-zinc-950 flex flex-col items-center px-3 py-4 sm:px-6 sm:py-6 relative">
+    <div className="min-h-screen w-full bg-bg text-fg flex flex-col items-center px-3 py-4 sm:px-6 sm:py-6 relative transition-colors duration-300">
       {/* Error flash overlay */}
       {errorFlash && (
-        <div className="fixed inset-0 pointer-events-none z-40 border-4 border-red-500/40 rounded-lg animate-[cell-correct-flash_0.6s_ease-out_forwards]"
-          style={{ background: "radial-gradient(ellipse at center, rgba(239,68,68,0.08) 0%, transparent 70%)" }}
+        <div
+          className="fixed inset-0 pointer-events-none z-40 border-4 border-red-500/50 rounded-lg animate-screen-flash"
+          style={{ background: "radial-gradient(ellipse at center, rgba(239,68,68,0.12) 0%, transparent 70%)" }}
         />
       )}
 
       <div className="w-full max-w-lg flex flex-col gap-4 flex-1">
         {/* Header */}
         <TopBar
+          avatar={player.avatar}
+          xp={player.xp}
+          isSignedIn={Boolean(user)}
+          onOpen={setActivePanel}
           difficulty={state.difficulty}
-          onChangeDifficulty={(d) => startNewGame(d)}
+          dailyDate={state.dailyDate}
+          onChangeDifficulty={d => {
+            setReward(null);
+            startNewGame(d);
+          }}
           mistakes={state.mistakes}
           maxMistakes={state.maxMistakes}
-          onChangeMaxMistakes={setMaxMistakes}
           timerSeconds={state.timerSeconds}
+          showTimer={player.settings.showTimer}
           isPaused={state.isPaused}
           onTogglePause={togglePause}
-          theme={theme}
-          onToggleTheme={toggleTheme}
           isMuted={isMuted}
           onToggleSound={toggleSound}
           board={state.board}
+          dailyDone={Boolean(player.daily[toDateKey()])}
         />
 
         {/* Grid */}
@@ -188,19 +275,21 @@ export const App: React.FC = () => {
             board={state.board}
             selectedCell={state.selectedCell}
             onSelect={handleSelect}
-            onValue={setCellValue}
-            isPencilMode={state.isPencilMode}
+            settings={player.settings}
+            isPaused={state.isPaused}
           />
         </div>
 
-        {/* Actions */}
+        {/* Action Toolbar */}
         <ActionToolbar
           onUndo={undo}
           onErase={handleErase}
           onTogglePencil={togglePencilMode}
           onHint={getHint}
+          onAutoNotes={fillAutoNotes}
           pencilMode={state.isPencilMode}
           historyLength={state.history.length}
+          hintsUsed={state.hintsUsed}
         />
 
         {/* Number Pad */}
@@ -208,6 +297,7 @@ export const App: React.FC = () => {
           board={state.board}
           onPress={handleSetValue}
           selectedNumber={selectedNumber}
+          pencilMode={state.isPencilMode}
         />
 
         {/* Bottom spacer for mobile safe area */}
@@ -217,13 +307,58 @@ export const App: React.FC = () => {
       {/* Modals */}
       <GameModals
         state={state}
+        reward={reward}
+        isNewRecord={isNewRecord}
+        isSignedIn={Boolean(user)}
         onContinue={togglePause}
-        onRestart={(diff) => startNewGame(diff ?? state.difficulty)}
-        onNextGame={() => startNewGame(state.difficulty)}
-        theme={theme}
-        toggleTheme={toggleTheme}
+        onRestart={handleRestart}
+        onNextGame={handleNextGame}
+        onOpenAuth={() => setActivePanel("auth")}
       />
+
+      {/* Slide-over panels */}
+      {activePanel === "profile" && (
+        <ProfilePanel
+          onClose={() => setActivePanel(null)}
+          onOpenAuth={() => setActivePanel("auth")}
+        />
+      )}
+
+      {activePanel === "auth" && (
+        <AuthPanel onClose={() => setActivePanel(null)} />
+      )}
+
+      {activePanel === "leaderboard" && (
+        <LeaderboardPanel onClose={() => setActivePanel(null)} />
+      )}
+
+      {activePanel === "daily" && (
+        <DailyPanel
+          onClose={() => setActivePanel(null)}
+          onStartDaily={dateKey => {
+            setReward(null);
+            startDaily(dateKey);
+          }}
+          currentDailyDate={state.dailyDate}
+        />
+      )}
+
+      {activePanel === "settings" && (
+        <SettingsPanel
+          onClose={() => setActivePanel(null)}
+          maxMistakes={state.maxMistakes}
+          onChangeMaxMistakes={setMaxMistakes}
+        />
+      )}
     </div>
+  );
+};
+
+export const App: React.FC = () => {
+  return (
+    <PlayerProvider>
+      <SudokuGameView />
+    </PlayerProvider>
   );
 };
 
