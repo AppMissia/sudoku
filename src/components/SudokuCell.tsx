@@ -9,11 +9,12 @@ export interface SudokuCellProps {
   isSameValue: boolean;
   isConflict: boolean;
   isNoteMatch: boolean; // selected digit appears in this cell's notes
+  animations?: boolean;
   onSelect: () => void;
 }
 
 export const SudokuCell: React.FC<SudokuCellProps> = React.memo(
-  ({ cell, isSelected, isHighlighted, isSameValue, isConflict, isNoteMatch, onSelect }) => {
+  ({ cell, isSelected, isHighlighted, isSameValue, isConflict, isNoteMatch, animations = true, onSelect }) => {
     const prevValueRef = useRef<number | null>(cell.value);
     const cellRef = useRef<HTMLDivElement>(null);
 
@@ -26,13 +27,13 @@ export const SudokuCell: React.FC<SudokuCellProps> = React.memo(
     });
 
     useEffect(() => {
-      if (justBecameError && cellRef.current) {
+      if (animations && justBecameError && cellRef.current) {
         const el = cellRef.current;
         el.classList.remove("animate-shake");
         void el.offsetWidth; // restart animation
         el.classList.add("animate-shake");
       }
-    }, [justBecameError, cell.value]);
+    }, [animations, justBecameError, cell.value]);
 
     const classes: string[] = [
       "aspect-square flex items-center justify-center",
@@ -43,7 +44,7 @@ export const SudokuCell: React.FC<SudokuCellProps> = React.memo(
 
     // Background
     if (cell.isError) {
-      classes.push("bg-red-500/20 animate-error-pulse");
+      classes.push(`bg-red-500/20 ${animations ? "animate-error-pulse" : ""}`);
     } else if (isSelected) {
       classes.push("bg-accent/25 ring-2 ring-inset ring-accent");
     } else if (isConflict) {
@@ -70,7 +71,7 @@ export const SudokuCell: React.FC<SudokuCellProps> = React.memo(
         style={{ touchAction: "manipulation" }}
       >
         {cell.value !== null ? (
-          <span className={`relative ${justBecameCorrect ? "animate-pop" : ""}`}>
+          <span className={`relative ${animations && justBecameCorrect ? "animate-pop" : ""}`}>
             {cell.value}
             {cell.isError && (
               <span className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-3/4 h-0.5 bg-red-500 rounded-full" />
@@ -98,7 +99,7 @@ export const SudokuCell: React.FC<SudokuCellProps> = React.memo(
           </div>
         ) : null}
 
-        {justBecameCorrect && (
+        {animations && justBecameCorrect && (
           <div className="absolute inset-0 animate-correct-flash pointer-events-none" />
         )}
       </div>

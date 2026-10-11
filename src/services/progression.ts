@@ -33,6 +33,7 @@ export const DEFAULT_SETTINGS: Settings = {
   autoRemoveNotes: true,
   showTimer: true,
   vibration: true,
+  animations: true,
 };
 
 const emptyStats = (): DifficultyStats => ({ played: 0, won: 0, bestTime: null, totalTime: 0 });

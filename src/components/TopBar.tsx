@@ -1,7 +1,7 @@
 // src/components/TopBar.tsx
 import React, { useMemo } from "react";
 import { Board, Difficulty } from "../types/sudoku";
-import { CalendarDays, Clock, Pause, Play, Settings as SettingsIcon, Trophy, Volume2, VolumeX } from "lucide-react";
+import { CalendarDays, Clock, Pause, Play, Settings as SettingsIcon, Sparkles, Trophy, Volume2, VolumeX } from "lucide-react";
 import { DIFFICULTIES, DIFFICULTY_LABELS, formatTime, levelProgress } from "../services/progression";
 
 export type View = "profile" | "leaderboard" | "daily" | "settings" | "auth";
@@ -22,6 +22,8 @@ export interface TopBarProps {
   onTogglePause: () => void;
   isMuted: boolean;
   onToggleSound: () => void;
+  animations: boolean;
+  onToggleAnimations: () => void;
   board: Board;
   dailyDone: boolean;
 }
@@ -49,7 +51,7 @@ export const TopBar: React.FC<TopBarProps> = ({
   avatar, xp, isSignedIn, onOpen,
   difficulty, dailyDate, onChangeDifficulty,
   mistakes, maxMistakes, timerSeconds, showTimer, isPaused, onTogglePause,
-  isMuted, onToggleSound, board, dailyDone,
+  isMuted, onToggleSound, animations, onToggleAnimations, board, dailyDone,
 }) => {
   const { level, pct: levelPct } = levelProgress(xp);
 
@@ -101,6 +103,16 @@ export const TopBar: React.FC<TopBarProps> = ({
           </IconBtn>
           <IconBtn onClick={onToggleSound} label={isMuted ? "Включить звук" : "Выключить звук"}>
             {isMuted ? <VolumeX size={19} /> : <Volume2 size={19} />}
+          </IconBtn>
+          <IconBtn onClick={onToggleAnimations} label={animations ? "Выключить анимации" : "Включить анимации"}>
+            {animations ? (
+              <Sparkles size={19} className="text-accent" />
+            ) : (
+              <div className="relative w-[19px] h-[19px] flex items-center justify-center">
+                <Sparkles size={19} className="opacity-35" />
+                <div className="absolute w-[22px] h-[2px] bg-muted rotate-45 rounded-full" />
+              </div>
+            )}
           </IconBtn>
           <IconBtn onClick={() => onOpen("settings")} label="Настройки">
             <SettingsIcon size={19} />

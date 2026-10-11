@@ -47,6 +47,7 @@ export interface Settings {
   autoRemoveNotes: boolean;      // placing a digit removes it from peers' notes
   showTimer: boolean;
   vibration: boolean;
+  animations: boolean; // toggle animations and visual effects on/off
 }
 
 export interface DifficultyStats {

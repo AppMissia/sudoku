@@ -63,6 +63,7 @@ export const SudokuGrid: React.FC<SudokuGridProps> = ({ board, selectedCell, onS
               isSameValue={isSameValue}
               isConflict={conflicts.has(`${r}-${c}`)}
               isNoteMatch={isNoteMatch}
+              animations={settings.animations}
               onSelect={() => onSelect(r, c)}
             />
           </div>

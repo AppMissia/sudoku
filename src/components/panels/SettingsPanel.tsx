@@ -190,6 +190,12 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose, maxMistak
             onChange={v => setSetting("showTimer", v)}
           />
           <Toggle
+            label="Анимации интерфейса"
+            description="Тряска при ошибке, вспышки, плавные переходы и конфетти"
+            checked={settings.animations}
+            onChange={v => setSetting("animations", v)}
+          />
+          <Toggle
             label="Вибрация"
             description="Тактильный отклик при нажатии и ошибках (для смартфонов)"
             checked={settings.vibration}

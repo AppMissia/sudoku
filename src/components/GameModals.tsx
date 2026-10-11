@@ -9,6 +9,7 @@ export interface GameModalsProps {
   reward: RewardInfo | null;
   isNewRecord: boolean;
   isSignedIn: boolean;
+  animations?: boolean;
   onContinue: () => void;
   onRestart: (difficulty?: Difficulty) => void;
   onNextGame: () => void;
@@ -50,9 +51,9 @@ const Confetti: React.FC = () => {
   );
 };
 
-const Overlay: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+const Overlay: React.FC<{ children: React.ReactNode; animations?: boolean }> = ({ children, animations = true }) => (
   <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4">
-    <div className="w-full max-w-sm max-h-[90vh] overflow-y-auto scroll-thin rounded-3xl bg-surface border border-line/60 shadow-2xl shadow-black/50 p-6 text-center space-y-5 animate-fade-in-up">
+    <div className={`w-full max-w-sm max-h-[90vh] overflow-y-auto scroll-thin rounded-3xl bg-surface border border-line/60 shadow-2xl shadow-black/50 p-6 text-center space-y-5 ${animations ? "animate-fade-in-up" : ""}`}>
       {children}
     </div>
   </div>
@@ -115,15 +116,15 @@ const RewardBlock: React.FC<{ reward: RewardInfo }> = ({ reward }) => (
 );
 
 export const GameModals: React.FC<GameModalsProps> = ({
-  state, reward, isNewRecord, isSignedIn, onContinue, onRestart, onNextGame, onOpenAuth,
+  state, reward, isNewRecord, isSignedIn, animations = true, onContinue, onRestart, onNextGame, onOpenAuth,
 }) => {
   if (!state.isPaused && !state.isGameOver && !state.isWon) return null;
 
   if (state.isWon) {
     return (
       <>
-        <Confetti />
-        <Overlay>
+        {animations && <Confetti />}
+        <Overlay animations={animations}>
           <div className="w-16 h-16 mx-auto rounded-full bg-emerald-500/20 flex items-center justify-center">
             <Trophy size={32} className="text-emerald-500" />
           </div>
@@ -157,7 +158,7 @@ export const GameModals: React.FC<GameModalsProps> = ({
 
   if (state.isGameOver) {
     return (
-      <Overlay>
+      <Overlay animations={animations}>
         <div className="w-16 h-16 mx-auto rounded-full bg-red-500/20 flex items-center justify-center">
           <XCircle size={32} className="text-red-500" />
         </div>
@@ -178,7 +179,7 @@ export const GameModals: React.FC<GameModalsProps> = ({
   }
 
   return (
-    <Overlay>
+    <Overlay animations={animations}>
       <div className="w-16 h-16 mx-auto rounded-full bg-accent/20 flex items-center justify-center">
         <Play size={30} className="text-accent ml-1" />
       </div>

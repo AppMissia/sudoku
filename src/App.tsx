@@ -18,7 +18,7 @@ import { SettingsPanel } from "./components/panels/SettingsPanel";
 import { toDateKey } from "./utils/sudokuEngine";
 
 const SudokuGameView: React.FC = () => {
-  const { player, user, recordGame } = usePlayer();
+  const { player, user, recordGame, updateSettings } = usePlayer();
   const [activePanel, setActivePanel] = useState<View | null>(null);
   const [reward, setReward] = useState<RewardInfo | null>(null);
   const [isNewRecord, setIsNewRecord] = useState(false);
@@ -47,15 +47,22 @@ const SudokuGameView: React.FC = () => {
   const [errorFlash, setErrorFlash] = useState(false);
   const prevMistakes = useRef(state.mistakes);
 
-  // Sync theme attribute with document root
+  // Sync theme & animations attributes with document root
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", player.settings.theme);
   }, [player.settings.theme]);
 
+  useEffect(() => {
+    document.documentElement.setAttribute(
+      "data-animations",
+      player.settings.animations ? "true" : "false"
+    );
+  }, [player.settings.animations]);
+
   // Detect mistake increase → trigger screen flash & audio/haptic feedback
   useEffect(() => {
     if (state.mistakes > prevMistakes.current) {
-      setErrorFlash(true);
+      if (player.settings.animations) setErrorFlash(true);
       sound.playError();
       if (player.settings.vibration) vibrateError();
       const t = setTimeout(() => setErrorFlash(false), 600);
@@ -63,7 +70,7 @@ const SudokuGameView: React.FC = () => {
       return () => clearTimeout(t);
     }
     prevMistakes.current = state.mistakes;
-  }, [state.mistakes, sound, player.settings.vibration]);
+  }, [state.mistakes, sound, player.settings.vibration, player.settings.animations]);
 
   // Selected cell's value for NumberPad & grid highlighting
   const selectedNumber = useMemo(() => {
@@ -265,6 +272,10 @@ const SudokuGameView: React.FC = () => {
           onTogglePause={togglePause}
           isMuted={isMuted}
           onToggleSound={toggleSound}
+          animations={player.settings.animations}
+          onToggleAnimations={() =>
+            updateSettings({ animations: !player.settings.animations })
+          }
           board={state.board}
           dailyDone={Boolean(player.daily[toDateKey()])}
         />
@@ -310,6 +321,7 @@ const SudokuGameView: React.FC = () => {
         reward={reward}
         isNewRecord={isNewRecord}
         isSignedIn={Boolean(user)}
+        animations={player.settings.animations}
         onContinue={togglePause}
         onRestart={handleRestart}
         onNextGame={handleNextGame}
