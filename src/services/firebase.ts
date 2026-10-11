@@ -11,15 +11,15 @@ import {
 const env = import.meta.env;
 
 const config = {
-  apiKey: env.VITE_FIREBASE_API_KEY,
-  authDomain: env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: env.VITE_FIREBASE_APP_ID,
+  apiKey: env.VITE_FIREBASE_API_KEY || "AIzaSyAsEAKGa3IGqHBp9SrDlucqpPo2Vj3Q1dw",
+  authDomain: env.VITE_FIREBASE_AUTH_DOMAIN || "sudoke-8cc5c.firebaseapp.com",
+  projectId: env.VITE_FIREBASE_PROJECT_ID || "sudoke-8cc5c",
+  storageBucket: env.VITE_FIREBASE_STORAGE_BUCKET || "sudoke-8cc5c.firebasestorage.app",
+  messagingSenderId: env.VITE_FIREBASE_MESSAGING_SENDER_ID || "626560038568",
+  appId: env.VITE_FIREBASE_APP_ID || "1:626560038568:web:dd18a696e670c22ae8749d",
 };
 
-/** Cloud features are enabled only when the keys are provided (see FIREBASE_SETUP.md) */
+/** Cloud features are enabled when valid keys are configured */
 export const isFirebaseConfigured = Boolean(config.apiKey && config.projectId && config.appId);
 
 let app: FirebaseApp | null = null;
@@ -31,7 +31,7 @@ if (isFirebaseConfigured) {
     app = initializeApp(config);
     auth = getAuth(app);
     db = initializeFirestore(app, {
-      // Offline support: writes are queued and synced when the network is back
+      // Offline support: writes are queued and synced when network is available
       localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
       ignoreUndefinedProperties: true,
     });
