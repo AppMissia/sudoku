@@ -78,10 +78,18 @@ function loadPersistedOrNew(initialDifficulty: Difficulty): GameState {
   return freshState(initialDifficulty, null);
 }
 
-function persist(state: GameState): void {
+const TIMER_STORAGE_KEY = "zen_sudoku_timer_v1";
+
+function persistGameState(state: GameState): void {
   try {
     // History snapshots are heavy — keep only the last 30 on disk
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...state, history: state.history.slice(-30) }));
+  } catch { /* ignore */ }
+}
+
+function persistTimer(seconds: number): void {
+  try {
+    localStorage.setItem(TIMER_STORAGE_KEY, String(seconds));
   } catch { /* ignore */ }
 }
 
@@ -90,32 +98,65 @@ export interface GameOptions {
 }
 
 export function useSudokuGame(options: GameOptions, initialDifficulty: Difficulty = "medium") {
-  const [state, setState] = useState<GameState>(() => loadPersistedOrNew(initialDifficulty));
+  const [state, setState] = useState<GameState>(() => {
+    const loaded = loadPersistedOrNew(initialDifficulty);
+    try {
+      const savedTimer = localStorage.getItem(TIMER_STORAGE_KEY);
+      if (savedTimer !== null) {
+        const parsed = parseInt(savedTimer, 10);
+        if (!isNaN(parsed) && parsed > 0) {
+          loaded.timerSeconds = parsed;
+        }
+      }
+    } catch { /* ignore */ }
+    return loaded;
+  });
   const optionsRef = useRef(options);
   optionsRef.current = options;
 
-  // Timer
+  // Timer: updates state and syncs lightweight timer value periodically
   useEffect(() => {
     if (state.isPaused || state.isGameOver || state.isWon) return;
     const id = setInterval(() => {
-      setState(prev => ({ ...prev, timerSeconds: prev.timerSeconds + 1 }));
+      setState(prev => {
+        const nextTime = prev.timerSeconds + 1;
+        // Save timer without heavy JSON serialization of the 9x9 board every second
+        if (nextTime % 5 === 0) {
+          persistTimer(nextTime);
+        }
+        return { ...prev, timerSeconds: nextTime };
+      });
     }, 1000);
     return () => clearInterval(id);
   }, [state.isPaused, state.isGameOver, state.isWon]);
 
-  // Auto-pause when the tab is hidden
+  // Auto-pause and persist current timer when tab is hidden or page unloaded
   useEffect(() => {
     const onVis = () => {
       if (document.hidden) {
-        setState(prev => (prev.isGameOver || prev.isWon || prev.isPaused ? prev : { ...prev, isPaused: true }));
+        setState(prev => {
+          persistTimer(prev.timerSeconds);
+          return (prev.isGameOver || prev.isWon || prev.isPaused ? prev : { ...prev, isPaused: true });
+        });
       }
     };
+    const onUnload = () => {
+      persistGameState(state);
+      persistTimer(state.timerSeconds);
+    };
     document.addEventListener("visibilitychange", onVis);
-    return () => document.removeEventListener("visibilitychange", onVis);
-  }, []);
+    window.addEventListener("beforeunload", onUnload);
+    return () => {
+      document.removeEventListener("visibilitychange", onVis);
+      window.removeEventListener("beforeunload", onUnload);
+    };
+  }, [state]);
 
-  // Persistence (throttled by the timer tick anyway)
-  useEffect(() => { persist(state); }, [state]);
+  // Persist game board & moves ONLY when board, mistakes, pause, or completion state changes
+  useEffect(() => {
+    persistGameState(state);
+    persistTimer(state.timerSeconds);
+  }, [state.board, state.mistakes, state.maxMistakes, state.isGameOver, state.isWon, state.isPaused, state.difficulty, state.dailyDate]);
 
   const selectCell = useCallback((row: number, col: number) => {
     setState(prev => ({ ...prev, selectedCell: [row, col] }));

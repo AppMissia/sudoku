@@ -10,7 +10,7 @@ export interface SudokuCellProps {
   isConflict: boolean;
   isNoteMatch: boolean; // selected digit appears in this cell's notes
   animations?: boolean;
-  onSelect: () => void;
+  onSelect: (row: number, col: number) => void;
 }
 
 export const SudokuCell: React.FC<SudokuCellProps> = React.memo(
@@ -71,6 +71,10 @@ export const SudokuCell: React.FC<SudokuCellProps> = React.memo(
         : "пусто"
     }`;
 
+    const handleClick = React.useCallback(() => {
+      onSelect(cell.row, cell.col);
+    }, [onSelect, cell.row, cell.col]);
+
     return (
       <div
         ref={cellRef}
@@ -79,7 +83,7 @@ export const SudokuCell: React.FC<SudokuCellProps> = React.memo(
         aria-selected={isSelected}
         tabIndex={isSelected ? 0 : -1}
         className={classes.join(" ")}
-        onClick={onSelect}
+        onClick={handleClick}
         style={{ touchAction: "manipulation" }}
       >
         {cell.value !== null ? (
