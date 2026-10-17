@@ -63,9 +63,21 @@ export const SudokuCell: React.FC<SudokuCellProps> = React.memo(
     else if (cell.value !== null) classes.push("text-accent font-semibold");
     else classes.push("text-muted");
 
+    const cellLabel = `Строка ${cell.row + 1}, колонка ${cell.col + 1}: ${
+      cell.value !== null
+        ? `${cell.value}${cell.isInitial ? " (исходная)" : cell.isError ? " (ошибка)" : ""}`
+        : cell.notes.length > 0
+        ? `пусто, заметки: ${cell.notes.join(", ")}`
+        : "пусто"
+    }`;
+
     return (
       <div
         ref={cellRef}
+        role="gridcell"
+        aria-label={cellLabel}
+        aria-selected={isSelected}
+        tabIndex={isSelected ? 0 : -1}
         className={classes.join(" ")}
         onClick={onSelect}
         style={{ touchAction: "manipulation" }}

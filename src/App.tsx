@@ -10,12 +10,14 @@ import { GameModals } from "./components/GameModals";
 import { SoundEngine } from "./utils/soundEngine";
 import { vibrateLight, vibrateError, vibrateSuccess } from "./utils/haptics";
 import { PlayerProvider, usePlayer } from "./context/PlayerContext";
-import { ProfilePanel } from "./components/panels/ProfilePanel";
-import { AuthPanel } from "./components/panels/AuthPanel";
-import { LeaderboardPanel } from "./components/panels/LeaderboardPanel";
-import { DailyPanel } from "./components/panels/DailyPanel";
-import { SettingsPanel } from "./components/panels/SettingsPanel";
 import { toDateKey } from "./utils/sudokuEngine";
+
+// Lazy load slide-over panels for code-splitting
+const ProfilePanel = React.lazy(() => import("./components/panels/ProfilePanel").then(m => ({ default: m.ProfilePanel })));
+const AuthPanel = React.lazy(() => import("./components/panels/AuthPanel").then(m => ({ default: m.AuthPanel })));
+const LeaderboardPanel = React.lazy(() => import("./components/panels/LeaderboardPanel").then(m => ({ default: m.LeaderboardPanel })));
+const DailyPanel = React.lazy(() => import("./components/panels/DailyPanel").then(m => ({ default: m.DailyPanel })));
+const SettingsPanel = React.lazy(() => import("./components/panels/SettingsPanel").then(m => ({ default: m.SettingsPanel })));
 
 const SudokuGameView: React.FC = () => {
   const { player, user, recordGame, updateSettings } = usePlayer();
@@ -328,40 +330,42 @@ const SudokuGameView: React.FC = () => {
         onOpenAuth={() => setActivePanel("auth")}
       />
 
-      {/* Slide-over panels */}
-      {activePanel === "profile" && (
-        <ProfilePanel
-          onClose={() => setActivePanel(null)}
-          onOpenAuth={() => setActivePanel("auth")}
-        />
-      )}
+      {/* Slide-over panels (lazy loaded) */}
+      <React.Suspense fallback={null}>
+        {activePanel === "profile" && (
+          <ProfilePanel
+            onClose={() => setActivePanel(null)}
+            onOpenAuth={() => setActivePanel("auth")}
+          />
+        )}
 
-      {activePanel === "auth" && (
-        <AuthPanel onClose={() => setActivePanel(null)} />
-      )}
+        {activePanel === "auth" && (
+          <AuthPanel onClose={() => setActivePanel(null)} />
+        )}
 
-      {activePanel === "leaderboard" && (
-        <LeaderboardPanel onClose={() => setActivePanel(null)} />
-      )}
+        {activePanel === "leaderboard" && (
+          <LeaderboardPanel onClose={() => setActivePanel(null)} />
+        )}
 
-      {activePanel === "daily" && (
-        <DailyPanel
-          onClose={() => setActivePanel(null)}
-          onStartDaily={dateKey => {
-            setReward(null);
-            startDaily(dateKey);
-          }}
-          currentDailyDate={state.dailyDate}
-        />
-      )}
+        {activePanel === "daily" && (
+          <DailyPanel
+            onClose={() => setActivePanel(null)}
+            onStartDaily={dateKey => {
+              setReward(null);
+              startDaily(dateKey);
+            }}
+            currentDailyDate={state.dailyDate}
+          />
+        )}
 
-      {activePanel === "settings" && (
-        <SettingsPanel
-          onClose={() => setActivePanel(null)}
-          maxMistakes={state.maxMistakes}
-          onChangeMaxMistakes={setMaxMistakes}
-        />
-      )}
+        {activePanel === "settings" && (
+          <SettingsPanel
+            onClose={() => setActivePanel(null)}
+            maxMistakes={state.maxMistakes}
+            onChangeMaxMistakes={setMaxMistakes}
+          />
+        )}
+      </React.Suspense>
     </div>
   );
 };

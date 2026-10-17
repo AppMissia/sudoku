@@ -76,6 +76,8 @@ export const SudokuGrid: React.FC<SudokuGridProps> = ({ board, selectedCell, onS
   return (
     <div className="w-full max-w-[420px] mx-auto relative">
       <div
+        role="grid"
+        aria-label="Игровое поле судоку 9 на 9"
         className={`grid grid-cols-9 rounded-2xl overflow-hidden border-2 border-line shadow-2xl shadow-black/30 bg-line/40 gap-px transition-[filter] duration-300 ${
           isPaused ? "blur-md" : ""
         }`}

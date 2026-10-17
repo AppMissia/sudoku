@@ -7,16 +7,34 @@ service cloud.firestore {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
     
-    // Общая таблица лидеров: читать может любой, обновлять — только свой профиль
+    // Общая таблица лидеров:
+    // - Читать может любой
+    // - Писать может только авторизованный владелец, с валидацией разумных границ XP и побед
     match /leaderboard/{userId} {
       allow read: if true;
-      allow write: if request.auth != null && request.auth.uid == userId;
+      allow write: if request.auth != null && request.auth.uid == userId
+        && request.resource.data.xp is number
+        && request.resource.data.xp >= 0
+        && request.resource.data.wins is number
+        && request.resource.data.wins >= 0;
     }
     
-    // Ежедневный челлендж: читать может любой, записать свой результат может авторизованный игрок
+    // Ежедневный челлендж:
+    // - Читать может любой
+    // - Записать свой результат может авторизованный игрок
+    // - Защита от читерства: время не может быть меньше 20 секунд (физически невозможно решить 81 клетку быстрее),
+    //   ошибок не может быть отрицательное число, и нельзя перезаписать свой старый рекорд худшим временем.
     match /daily/{dateKey}/scores/{userId} {
       allow read: if true;
-      allow write: if request.auth != null && request.auth.uid == userId;
+      allow create: if request.auth != null && request.auth.uid == userId
+        && request.resource.data.time is number
+        && request.resource.data.time >= 20
+        && request.resource.data.mistakes is number
+        && request.resource.data.mistakes >= 0;
+      allow update: if request.auth != null && request.auth.uid == userId
+        && request.resource.data.time is number
+        && request.resource.data.time >= 20
+        && request.resource.data.time <= resource.data.time;
     }
   }
 }

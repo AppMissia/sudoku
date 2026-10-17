@@ -13,4 +13,16 @@ export default defineConfig({
   css: {
     postcss: './postcss.config.cjs',
   },
+  build: {
+    chunkSizeWarningLimit: 600,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom'],
+          'vendor-firebase': ['firebase/app', 'firebase/auth', 'firebase/firestore'],
+          'vendor-icons': ['lucide-react'],
+        },
+      },
+    },
+  },
 });
